@@ -19,7 +19,7 @@ const bodyParser = require("body-parser");
 const express = require("express");
 const _ = require("lodash");
 
-var defaultModules = require(path.resolve(__dirname + "/../../modules/default/defaultmodules.js"));
+var defaultModules = require(path.resolve(__dirname + "/../default/defaultmodules.js"));
 
 Module = {
     configDefaults: {},
@@ -95,7 +95,7 @@ module.exports = NodeHelper.create(Object.assign({
         },
 
         combineConfig() {
-            // function copied from MagicMirrorOrg (MIT)
+            // function copied from MichMich (MIT)
             var defaults = require(__dirname + "/../../js/defaults.js");
             var configFilename = path.resolve(__dirname + "/../../config/config.js");
             if (typeof(global.configuration_file) !== "undefined") {
@@ -109,6 +109,10 @@ module.exports = NodeHelper.create(Object.assign({
                 var config = Object.assign({}, defaults, c);
                 this.configOnHd = config;
                 // Get the configuration for this module.
+                if(this.configOnHd.paths== undefined){
+                    this.configOnHd.paths={modules: __dirname.split(path.sep).slice(-2,-1)}
+                    console.log("fix modules paths=", this.configOnHd.paths)
+                }
                 if ("modules" in this.configOnHd) {
                     let thisModule = this.configOnHd.modules.find(m => m.module === 'MMM-Remote-Control');
                     if (thisModule && "config" in thisModule) {
@@ -215,13 +219,14 @@ module.exports = NodeHelper.create(Object.assign({
                         name: self.capitalizeFirst(defaultModules[i]),
                         isDefaultModule: true,
                         installed: true,
-                        author: "MagicMirrorOrg",
+                        author: "MichMich",
                         desc: "",
-                        id: "MagicMirrorOrg/MagicMirror",
-                        url: "https://docs.magicmirror.builders/modules/introduction.html"
+                        id: "MichMich/MagicMirror",
+                        url: "https://github.com/MichMich/MagicMirror/wiki/MagicMirror%C2%B2-Modules#default-modules"
                     });
                     var module = self.modulesAvailable[self.modulesAvailable.length - 1];
-                    var modulePath = "modules/default/" + defaultModules[i];
+                    //console.log("default module ="+ defaultModules[i], " paths=",self.configOnHd.paths )
+                    var modulePath = self.configOnHd.paths.modules + "/default/" + defaultModules[i];
                     self.loadModuleDefaultConfig(module, modulePath, i === defaultModules.length-1);
                 }
 
@@ -235,14 +240,10 @@ module.exports = NodeHelper.create(Object.assign({
             });
         },
 
-        getModuleDir() {
-            return this.configOnHd.foreignModulesDir ? this.configOnHd.foreignModulesDir : (this.configOnHd.paths ? this.configOnHd.paths.modules : "modules");
-        },
-
         addModule(folderName, lastOne) {
             var self = this;
 
-            var modulePath = this.getModuleDir() + "/" + folderName;
+            var modulePath = this.configOnHd.paths.modules + "/" + folderName;
             fs.stat(modulePath, (err, stats) => {
                 if (stats.isDirectory()) {
                     var isInList = false;
@@ -311,7 +312,7 @@ module.exports = NodeHelper.create(Object.assign({
         },
 
         loadModuleDefaultConfig(module, modulePath, lastOne) {
-            // function copied from MagicMirrorOrg (MIT)
+            // function copied from MichMich (MIT)
             var filename = path.resolve(modulePath + "/" + module.longname + ".js");
             try {
                 fs.accessSync(filename, fs.F_OK);
@@ -321,8 +322,8 @@ module.exports = NodeHelper.create(Object.assign({
                 if (e.code == "ENOENT") {
                     console.error("ERROR! Could not find main module js file for " + module.longname);
                 } else if (e instanceof ReferenceError || e instanceof SyntaxError) {
-                    console.error("ERROR! Could not validate main module js file.");
-                    console.error(e);
+                    console.error("ERROR! Could not validate main module js file. for ", module.longname);
+                    //console.error(e);
                 } else {
                     console.error("ERROR! Could not load main module js file. Error found: " + e);
                 }
@@ -339,12 +340,12 @@ module.exports = NodeHelper.create(Object.assign({
                     if (error) {
                         Log.error(error);
                     }
-                    res.writeHead(302, { 'Location': "https://github.com/MagicMirrorOrg/MagicMirror/tree/" + result.trim() + "/modules/default/" + query.module });
+                    res.writeHead(302, { 'Location': "https://github.com/MichMich/MagicMirror/tree/" + result.trim() + "/modules/default/" + query.module });
                     res.end();
                 });
                 return;
             }
-            var modulePath = this.getModuleDir() + "/" + query.module;
+            var modulePath = this.configOnHd.paths.modules + "/" + query.module;
             let git = simpleGit(modulePath);
             git.getRemotes(true, function(error, result) {
                 if (error) {
@@ -459,6 +460,12 @@ module.exports = NodeHelper.create(Object.assign({
                 source.pipe(destination, { end: false });
                 source.on("end", () => {
                     self.configOnHd = self.removeDefaultValues(req.body);
+
+                    if(self.configOnHd.paths ==undefined){
+                        console.log("fixing ", self.configOnHd.paths)
+                        self.configOnHd.paths={modules:__dirname.split(path.sep).slice(0,-2).join(path.sep)}
+                    }
+                    console.log("modules path="+self.configOnHd.paths.modules)
 
                     var header = "/*************** AUTO GENERATED BY REMOTE CONTROL MODULE ***************/\n\nvar config = \n";
                     var footer = "\n\n/*************** DO NOT EDIT THE LINE BELOW ***************/\nif (typeof module !== 'undefined') {module.exports = config;}\n";
